@@ -59,5 +59,5 @@ my $mgr = Resource::Loader->new(
 my $loaded = $mgr->load;
 my $status = $mgr->status;
 
-print "Resource::Loader::loaded():\n" . Data::Dumper->Dump([$loaded], ['loaded']);
-print "Resource::Loader::status():\n" . Data::Dumper->Dump([$status], ['status']);
+print "Resource::Loader::loaded():\n  " . Data::Dumper->Dump([$loaded], ['loaded']);
+print "Resource::Loader::status():\n  " . Data::Dumper->Dump([$status], ['status']);

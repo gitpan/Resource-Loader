@@ -5,7 +5,7 @@
 # Joshua Keroes
 #
 # This number is *not* the $VERSION (see below):
-# $Id: Loader.pm,v 1.6 2003/04/25 02:35:01 jkeroes Exp $
+# $Id: Loader.pm,v 1.8 2003/04/25 16:16:10 jkeroes Exp $
 
 package Resource::Loader;
 
@@ -14,7 +14,7 @@ use warnings;
 use Carp;
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 # In:  hash-style args. See docs.
 # Out: object
@@ -188,9 +188,9 @@ Resource::Loader - Load different resources depending...
   use Resource::Loader;
 
   $loader = Resource::Loader->new(
-    testing => 0, # default
-    verbose => 0, # default
-    cont    => 0, # default
+    testing => 0,
+    verbose => 0,
+    cont    => 0,
     resources =>
       [
 	{ name => 'never',
@@ -215,129 +215,228 @@ Resource::Loader - Load different resources depending...
 =head1 DESCRIPTION
 
 Resource::Loader is simple at its core: You give it a list of
-resources. Each resource knows when it should be triggered, and if
+resources. Each resource knows when it should be triggered and if
 it's triggered, will run its code segment.
 
-Both the 'when' and the 'code' pieces are coderefs, so you can be as
-devious as you want in determining when a resource will be loaded.
+Both the I<when> and the I<code> are coderefs, so you can be as
+devious as you want in determining when a resource will be loaded and
+what, exactly, it does.
 
 I originally wrote this to solve a simple problem but realized that
 the class is probably applicable to a whole slew of problems. I look
 forward to hearing to what devious ends you push this module.  Really,
 send me an email - I love hearing about people using my toys.
 
-Want to know what my simple problem was? See the L<EXAMPLES>.
+Want to know what my 'simple problem' was? See the L<EXAMPLES>.
 
 =head1 METHODS
+
+=head2 new()
+
+Create a new object.
+
+  $loader = Resource::Loader->new(
+    testing => 0,
+    verbose => 0,
+    cont    => 0,
+    resources =>
+      [
+	{ name => 'never',
+	  when => sub { 0 },
+	  code => sub { die "this will never be loaded" },
+	},
+	{ name => 'sometimes',
+	  when => sub { int rand 2 > 0 },
+	  code => sub { "'sometimes' was loaded. args: [@_]" },
+	  args => [ qw/foo bar baz/ ],
+	},
+	{ name => 'always',
+	  when => sub { 1 },
+	  code => sub { "always' was loaded" },
+	},
+      ],
+  );
+
+Note: I<testing>, I<verbose>, I<cont> all default to zero.
 
 =head2 resources()
 
 What to run and when to run it.
 
-Accepts a listref of hashrefs like:
+  # arrayref style
+  $loader->resources(
+    [
+     { name => 'never',
+       when => sub { 0 },
+       code => sub { die "this will never be loaded" },
+     },
+     { name => 'sometimes',
+       when => sub { int rand 2 > 0 },
+       code => sub { "'sometimes' was loaded. args: [@_]" },
+       args => [ qw/foo bar baz/ ],
+     },
+     { name => 'always',
+       when => sub { 1 },
+       code => sub { "always' was loaded" },
+     }
+    ]
+   );
 
-  [
-    { name => 'never',
-      when => sub { 0 },
-      code => sub { die "this will never be loaded" },
-    },
-    { name => 'sometimes',
-      when => sub { int rand 2 > 0 },
-      code => sub { "'sometimes' was loaded. args: [@_]" },
-      args => [ qw/foo bar baz/ ],
-    },
-    { name => 'always',
-      when => sub { 1 },
-      code => sub { "always' was loaded" },
-    },
-  ],
+  # list style
+  $loader->resources(
+     { name => 'never',
+       when => sub { 0 },
+       code => sub { die "this will never be loaded" },
+     },
+     { name => 'sometimes',
+       when => sub { int rand 2 > 0 },
+       code => sub { "'sometimes' was loaded. args: [@_]" },
+       args => [ qw/foo bar baz/ ],
+     },
+     { name => 'always',
+       when => sub { 1 },
+       code => sub { "always' was loaded" },
+     }
+   );
 
 Each resource is a hashref that takes the same arguments:
 
-  name: what is this resource called?
+=over 10
 
-  when: a coderef that controls whether the resource will be activated
+=item name
 
-  code: a coderef that is only run if the 'when' code returns true
+what is this resource called?
 
-  args: an optional arrayref of args that are passed to the 'code'.
+=item when
 
-Note: using colons in your 'name's is not recommended. It will break
-the $ENV{RMSTATES} handling.
+a coderef that controls whether the resource will be activated
+
+=item code
+
+a coderef that is only run if the I<when> coderef returns true
+
+=item args
+
+an optional arrayref of argumentss that are passed to the I<code>.
+
+=back
+
+Note: using colons in your I<name>s is not recommended. It will break
+the $ENV{RMSTATES} handling. Keep It Simple.
 
 =head2 load()
+
+  $loaded = $loader->load;
 
 Load the resources.
 
 Walks through the resources() in order. For each resource, if the
-'when' coderef returns true, then the 'code' coderef will be run as well.
+I<when> coderef returns true, then the I<code> coderef will be run as
+well.
 
-That behaviour can be changed by the cont() and  testing() methods
-as well as the RMCONT and RMTESTING environment variables.
+That behaviour can be changed with the cont() and testing() methods
+as well as the analagous I<RMCONT> and I<RMTESTING> environment variables.
 
-load() returns the output of loaded(); a hashref of statenames that
-loaded successfully and the respective return values. See loaded().
+load() returns the output of loaded(); a hashref of I<name>s that
+loaded successfully and the respective return values.
 
-Note: Running this method will overwrite the current status() and
-loaded() tables with new info.
+Note: Running this method will overwrite any preexisting status() and
+loaded() tables with current info.
+
+Note: Don't confuse this with loaded(). load() loads the resources,
+loaded() tells you what loaded.
 
 =head2 cont()
+
+  $will_continue = $loader->cont( 1 );
+  $will_continue = $loader->cont( 0 ); # default
+  $will_continue = $loader->cont;
 
 Do you want to continue loading resources after the first one is
 loaded?  Sometimes you want the first successful resource to load and
 then skip all the others. That's the default behaviour. If you set
 cont() to 1, then load() will keep checking (and loading resources).
 
-When true, all states with true 'when' coderefs will be loaded.
+When true, all states with true I<when> coderefs will be loaded.
 
 When false, execution of states will stop after the first. (default)
 
-The RMCONT environment variable value takes precedence to any
+The I<RMCONT> environment variable value takes precedence to any
 value that this method is set to.
 
-cont() will return true if either $ENV{RMCONT} or this method has
+cont() will return true if either I<$ENV{RMCONT}> or this method has
 been set to true.
 
 =head2 testing()
 
-When true, don't actually run the 'code' resources.
+  $is_testing = $loader->testing( 1 );
+  $is_testing = $loader->testing( 0 ); # default
+  $is_testing = $loader->testing;
+
+When true, don't actually run the I<code> resources.
 
 When false, it will.
 
-The RMTESTING environment variable value takes precedence to any value
-that this is set to.  It will return true if either $ENV{RMTESTING} or
+The I<RMTESTING> environment variable value takes precedence to any value
+that this is set to.  It will return true if either I<$ENV{RMTESTING}> or
 this method has been set to true.
 
-When testing() is on, status() results will be set to 'skipped' if the
-'when' coderef if true but the 'code' coderef wasn't run.
+When testing() is on, status() results will be set to I<skipped> if the
+I<when> coderef if true but the I<code> coderef wasn't run.
 
-=head2 verbose() - be chatty
+=head2 verbose()
+
+  $is_verbose = $loader->verbose( 1 );
+  $is_verbose = $loader->verbose( 0 ); # default
+  $is_verbose = $loader->verbose;
 
 When true, print internal processing messages to STDOUT
 
 When false, run quietly.
 
-The RMCONT environment variable value takes precedence to any value
-that this is set to. It will return true if either $ENV{RMCONT} or
+The I<RMVERBOSE> environment variable value takes precedence to any value
+that this is set to. It will return true if either I<$ENV{RMVERBOSE}> or
 this method has been set to true.
 
 =head2 status()
 
-Returns a hashref of which resources loading stati. Maps state names to one of these values:
+  $status = $loader->status;
 
-  loaded: 'when' succeded so 'code' was run
+Returns a hashref of which resources loading stati. Maps I<name>s
+to one of these values: Don't forget to call load() first!
 
-  skipped: the state name wasn't in $ENV{RMSTATES} so neither 'when' nor 'code' was run
+=over 10
 
-  notrun: 'when' succeeded and but 'code' wasn't run because we're in testing mode.
+=item loaded
 
-  inactive: 'code' wasn't run.
+The I<when> successed so I<code> was run
 
-sub loaded()
+=item skipped
 
-Returns a hashref that maps state names to the return values of loaded resources.
+I<$ENV{RMSTATES}> is defined but this state I<name> wasn't isn't in it so neither I<when> nor I<code> was run
+
+=item notrun
+
+I<when> succeeded and but I<code> wasn't run because we're in testing mode.
+
+=item inactive
+
+Code wasn't run.
+
+=back
+
+=head2 loaded()
+
+  $loaded = $loader->loaded;
+
+Returns a hashref that maps state I<name>s to the return values of loaded resources.
+
+Note: Don't confuse this with load(). load() loads the resources,
+loaded() tells you what loaded.
 
 =head2 env()
+
+  $env = $loader->env;
 
 Returns a hashref of the Resource::Loader-related environment variables and their current
 values. Probably only useful for debugging.
@@ -349,8 +448,8 @@ object (e.g. to test your Resource::Loader's responses)
 
 =head2 RMSTATES
 
-colon-separated list of states to run resources for. The 'when'
-coderefs won't even be run if the state names aren't listed here.
+Colon-separated list of states to run resources for. The I<when>
+coderefs won't even be run if the state I<name>s aren't listed here.
 
 =head2 RMCONT
 
@@ -366,21 +465,22 @@ See verbose()
 
 =head1 EXAMPLES
 
-I originally wrote this to handle software deployment. Our software
-starts its life on our development machine. From there, it's pushed to
-a test machine. If it tests clean, it's eventually moved to a
-production machine. The test and production machines are supposed to
-be as similar as possible to prevent surprises when we deploy to
-production.
+I originally wrote this to handle our software deployment needs. The
+software starts its life on our development machine. From there, it's
+pushed to a test machine. If it tests clean there, we pushed it to one
+or more production machine(s). The test and production machines are
+supposed to be as similar as possible to prevent surprises when the
+software hits production.
 
 We don't want to mix environments by, say, testing code on the dev
-box with the production database.
+box with the production database. Accidentally mangling a production
+database would be, how you say, dumb.
 
 The source code for this is in the examples/ directory.
 
 =head1 SEE ALSO
 
-City of God. It's quite a movie.
+Abstract Factory design pattern. This isn't a factory but it's similar.
 
 =head1 AUTHOR
 
@@ -391,6 +491,6 @@ Joshua Keroes, E<lt>skunkworks@eli.netE<gt>
 Copyright 2003 by Joshua Keroes
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+it under the same terms as Perl itself.
 
 =cut
