@@ -8,12 +8,12 @@ use Resource::Loader;
 ok $m = Resource::Loader->new(
 				resources => [ { name => 'never',
 						 when => sub { 0 },
-						 code => sub { &die },
+						 what => sub { &die },
 					       },
 					       { name => 'always',
 						 when => sub { 1 },
-						 code => sub { "@_" },
-						 args => [ 1, 2, 3 ],
+						 what => sub { "@_" },
+						 whatargs => [ 1, 2, 3 ],
 					       },
 					     ],
 

@@ -31,7 +31,7 @@ my $mgr = Resource::Loader->new(
 	resources => [
 		{ name => 'dev',
 		  when => sub { hostname() eq "sandbox" && -d 'CVS' },
- 		  code => sub { { ds   => 'dbi:mysql:host=sandbox.eli.net;sid=foodev',
+ 		  what => sub { { ds   => 'dbi:mysql:host=sandbox.eli.net;sid=foodev',
 				  user => 'readonly',
 				  pass => '',
 			        }
@@ -39,7 +39,7 @@ my $mgr = Resource::Loader->new(
 		},
 		{ name => 'test',
 		  when => sub { hostname() eq "test" },
- 		  code => sub { { ds   => 'dbi:mysql:host=db.eli.net;sid=footest',
+ 		  what => sub { { ds   => 'dbi:mysql:host=db.eli.net;sid=footest',
 				  user => 'foo',
 				  pass => '$Dd%f1qA$s',
 			        }
@@ -47,7 +47,7 @@ my $mgr = Resource::Loader->new(
 		},
 		{ name => 'prod',
 		  when => sub { 1 }, # default case
- 		  code => sub { { ds   => 'dbi:mysql:host=db.eli.net;sid=fooprod',
+ 		  what => sub { { ds   => 'dbi:mysql:host=db.eli.net;sid=fooprod',
 				  user => 'foo',
 				  pass => '$Dd%f1qA$s',
 			        }

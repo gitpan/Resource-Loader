@@ -5,7 +5,7 @@
 # Joshua Keroes
 #
 # This number is *not* the $VERSION (see below):
-# $Id: Loader.pm,v 1.8 2003/04/25 16:16:10 jkeroes Exp $
+# $Id: Loader.pm,v 1.10 2003/04/28 23:28:19 jkeroes Exp $
 
 package Resource::Loader;
 
@@ -14,7 +14,7 @@ use warnings;
 use Carp;
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 # In:  hash-style args. See docs.
 # Out: object
@@ -51,18 +51,22 @@ sub resources {
 	undef $self->{resources};
 
 	for ( ref $_[0] eq 'ARRAY' ? @{ $_[0] } : $_[0] ) {
-	    croak "Malformed resource. Needs 'name', 'when', and 'code' args"
+	    croak "Malformed resource. Needs 'name', 'when', and 'what' args"
 		unless defined $_->{name}
 		    && defined $_->{when}
-	            && defined $_->{code};
+	            && defined $_->{what};
 
-	    croak "Malformed resource. 'when' and 'code' need to be coderefs."
-		unless ref $_->{code} eq "CODE"
+	    croak "Malformed resource. 'when' and 'what' need to be coderefs."
+		unless ref $_->{what} eq "CODE"
 		    && ref $_->{when} eq "CODE";
 
-	    croak "Malformed resource. 'args' needs to be an arrayref."
-		if $_->{args}
-		    && ref $_->{args} ne "ARRAY";
+	    croak "Malformed resource. 'whatargs' needs to be an arrayref."
+		if $_->{whatargs}
+		    && ref $_->{whatargs} ne "ARRAY";
+
+	    croak "Malformed resource. 'whenargs' needs to be an arrayref."
+		if $_->{whenargs}
+		    && ref $_->{whenargs} ne "ARRAY";
 
 	    push @{ $self->{resources} }, $_;
 	}	
@@ -139,18 +143,18 @@ sub load {
 	    }
 	}
 
-	if ( &{ $_->{when} } ) {
+	if ( $_->{when}->( ref $_->{whenargs} eq "ARRAY"
+			   ? @{ $_->{whenargs} }
+			   : () ) ) {
 	    print __PACKAGE__ . " state '$name' active\n" if $self->verbose;
 
 	    if ( $self->testing ) {
 		print __PACKAGE__ . " in testing: won't run code for state '$name'\n" if $self->verbose;
 		$self->{status}{$name} = 'notrun';
 	    } else {
-		my $code = $_->{code};
-		$self->{loaded}{$name} = $code->( ref $_->{args} eq "ARRAY"
-						  ? @{ $_->{args} }
-						  : $_->{args}
-						);
+		$self->{loaded}{$name} = $_->{what}->( ref $_->{whatargs} eq "ARRAY"
+						       ? @{ $_->{whatargs} }
+						       : () );
 		$self->{status}{$name} = 'loaded';
 	    }
 
@@ -195,16 +199,22 @@ Resource::Loader - Load different resources depending...
       [
 	{ name => 'never',
 	  when => sub { 0 },
-	  code => sub { die "this will never be loaded" },
+	  what => sub { die "this will never be loaded" },
 	},
-	{ name => 'sometimes',
+	{ name => 'sometimes 50%',
 	  when => sub { int rand 2 > 0 },
-	  code => sub { "'sometimes' was loaded. args: [@_]" },
-	  args => [ qw/foo bar baz/ ],
+	  what => sub { "'sometimes' was loaded. args: [@_]" },
+	  whatargs => [ qw/foo bar baz/ ],
+	},
+	{ name => 'sometimes 66%',
+	  when => sub { int rand @_ },
+	  whenargs => [ 0, 1, 2 ],
+	  what => sub { "'sometimes' was loaded. args: [@_]" },
+	  whatargs => [ qw/foo bar baz/ ],
 	},
 	{ name => 'always',
 	  when => sub { 1 },
-	  code => sub { "always' was loaded" },
+	  what => sub { "always' was loaded" },
 	},
       ],
   );
@@ -218,7 +228,7 @@ Resource::Loader is simple at its core: You give it a list of
 resources. Each resource knows when it should be triggered and if
 it's triggered, will run its code segment.
 
-Both the I<when> and the I<code> are coderefs, so you can be as
+Both the I<when> and the I<what> are coderefs, so you can be as
 devious as you want in determining when a resource will be loaded and
 what, exactly, it does.
 
@@ -243,16 +253,22 @@ Create a new object.
       [
 	{ name => 'never',
 	  when => sub { 0 },
-	  code => sub { die "this will never be loaded" },
+	  what => sub { die "this will never be loaded" },
 	},
-	{ name => 'sometimes',
+	{ name => 'sometimes 50%',
 	  when => sub { int rand 2 > 0 },
-	  code => sub { "'sometimes' was loaded. args: [@_]" },
-	  args => [ qw/foo bar baz/ ],
+	  what => sub { "'sometimes' was loaded. args: [@_]" },
+	  whatargs => [ qw/foo bar baz/ ],
+	},
+	{ name => 'sometimes 66%',
+	  when => sub { int rand @_ },
+	  whenargs => [ 0, 1, 2 ],
+	  what => sub { "'sometimes' was loaded. args: [@_]" },
+	  whatargs => [ qw/foo bar baz/ ],
 	},
 	{ name => 'always',
 	  when => sub { 1 },
-	  code => sub { "always' was loaded" },
+	  what => sub { "always' was loaded" },
 	},
       ],
   );
@@ -268,16 +284,22 @@ What to run and when to run it.
     [
      { name => 'never',
        when => sub { 0 },
-       code => sub { die "this will never be loaded" },
+       what => sub { die "this will never be loaded" },
      },
-     { name => 'sometimes',
+     { name => 'sometimes 50%',
        when => sub { int rand 2 > 0 },
-       code => sub { "'sometimes' was loaded. args: [@_]" },
-       args => [ qw/foo bar baz/ ],
+       what => sub { "'sometimes' was loaded. args: [@_]" },
+       whatargs => [ qw/foo bar baz/ ],
+     },
+     { name => 'sometimes 66%',
+       when => sub { int rand @_ },
+       whenargs => [ 0, 1, 2 ],
+       what => sub { "'sometimes' was loaded. args: [@_]" },
+       whatargs => [ qw/foo bar baz/ ],
      },
      { name => 'always',
        when => sub { 1 },
-       code => sub { "always' was loaded" },
+       what => sub { "always' was loaded" },
      }
     ]
    );
@@ -286,16 +308,22 @@ What to run and when to run it.
   $loader->resources(
      { name => 'never',
        when => sub { 0 },
-       code => sub { die "this will never be loaded" },
+       what => sub { die "this will never be loaded" },
      },
-     { name => 'sometimes',
+     { name => 'sometimes 50%',
        when => sub { int rand 2 > 0 },
-       code => sub { "'sometimes' was loaded. args: [@_]" },
-       args => [ qw/foo bar baz/ ],
+       what => sub { "'sometimes' was loaded. args: [@_]" },
+       whatargs => [ qw/foo bar baz/ ],
+     },
+     { name => 'sometimes 66%',
+       when => sub { int rand @_ },
+       whenargs => [ 0, 1, 2 ],
+       what => sub { "'sometimes' was loaded. args: [@_]" },
+       whatargs => [ qw/foo bar baz/ ],
      },
      { name => 'always',
        when => sub { 1 },
-       code => sub { "always' was loaded" },
+       what => sub { "always' was loaded" },
      }
    );
 
@@ -311,13 +339,17 @@ what is this resource called?
 
 a coderef that controls whether the resource will be activated
 
-=item code
+=item whenargs
+
+an optional arrayref of arguments that are passed to the I<when>.
+
+=item what
 
 a coderef that is only run if the I<when> coderef returns true
 
-=item args
+=item whatargs
 
-an optional arrayref of argumentss that are passed to the I<code>.
+an optional arrayref of arguments that are passed to the I<what>.
 
 =back
 
@@ -331,7 +363,7 @@ the $ENV{RMSTATES} handling. Keep It Simple.
 Load the resources.
 
 Walks through the resources() in order. For each resource, if the
-I<when> coderef returns true, then the I<code> coderef will be run as
+I<when> coderef returns true, then the I<what> coderef will be run as
 well.
 
 That behaviour can be changed with the cont() and testing() methods
@@ -373,7 +405,7 @@ been set to true.
   $is_testing = $loader->testing( 0 ); # default
   $is_testing = $loader->testing;
 
-When true, don't actually run the I<code> resources.
+When true, don't actually run the I<what> resources.
 
 When false, it will.
 
@@ -382,7 +414,7 @@ that this is set to.  It will return true if either I<$ENV{RMTESTING}> or
 this method has been set to true.
 
 When testing() is on, status() results will be set to I<skipped> if the
-I<when> coderef if true but the I<code> coderef wasn't run.
+I<when> coderef if true but the I<what> coderef wasn't run.
 
 =head2 verbose()
 
@@ -409,19 +441,20 @@ to one of these values: Don't forget to call load() first!
 
 =item loaded
 
-The I<when> successed so I<code> was run
+The I<when> succeeded so I<what> was run
 
 =item skipped
 
-I<$ENV{RMSTATES}> is defined but this state I<name> wasn't isn't in it so neither I<when> nor I<code> was run
+I<$ENV{RMSTATES}> is defined but this state I<name> wasn't isn't in it so 
+neither I<when> nor I<what> was run
 
 =item notrun
 
-I<when> succeeded and but I<code> wasn't run because we're in testing mode.
+I<when> succeeded and but I<what> wasn't run because we're in testing mode.
 
 =item inactive
 
-Code wasn't run.
+I<what> wasn't run.
 
 =back
 
@@ -429,7 +462,8 @@ Code wasn't run.
 
   $loaded = $loader->loaded;
 
-Returns a hashref that maps state I<name>s to the return values of loaded resources.
+Returns a hashref that maps state I<name>s to the return values of
+loaded resources.
 
 Note: Don't confuse this with load(). load() loads the resources,
 loaded() tells you what loaded.
@@ -438,8 +472,9 @@ loaded() tells you what loaded.
 
   $env = $loader->env;
 
-Returns a hashref of the Resource::Loader-related environment variables and their current
-values. Probably only useful for debugging.
+Returns a hashref of the Resource::Loader-related environment
+variables and their current values. Probably only useful for
+debugging.
 
 =head1 ENVIRONMENT
 
@@ -477,6 +512,8 @@ box with the production database. Accidentally mangling a production
 database would be, how you say, dumb.
 
 The source code for this is in the examples/ directory.
+
+There are other examples in that directory, check them out!
 
 =head1 SEE ALSO
 
