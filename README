@@ -1,0 +1,196 @@
+NAME
+    Resource::Loader - Load different resources depending...
+
+SYNOPSIS
+    use Resource::Loader;
+
+SYNOPSIS
+      $loader = Resource::Loader->new(
+        testing => 0, # default
+        verbose => 0, # default
+        cont    => 0, # default
+        resources =>
+          [
+            { name => 'never',
+              when => sub { 0 },
+              code => sub { die "this will never be loaded" },
+            },
+            { name => 'sometimes',
+              when => sub { int rand 2 > 0 },
+              code => sub { "'sometimes' was loaded. args: [@_]" },
+              args => [ qw/foo bar baz/ ],
+            },
+            { name => 'always',
+              when => sub { 1 },
+              code => sub { "always' was loaded" },
+            },
+          ],
+      );
+
+      $status = $loader->load;
+      $loaded = $loader->loaded;
+
+DESCRIPTION
+    Resource::Loader is simple at its core: You give it a list of resources.
+    Each resource knows when it should be triggered, and if it's triggered,
+    will run its code segment.
+
+    Both the 'when' and the 'code' pieces are coderefs, so you can be as
+    devious as you want in determining when a resource will be loaded.
+
+    I originally wrote this to solve a simple problem but realized that the
+    class is probably applicable to a whole slew of problems. I look forward
+    to hearing to what devious ends you push this module. Really, send me an
+    email - I love hearing about people using my toys.
+
+    Want to know what my simple problem was? See the EXAMPLES.
+
+METHODS
+  resources()
+    What to run and when to run it.
+
+    Accepts a listref of hashrefs like:
+
+      [
+        { name => 'never',
+          when => sub { 0 },
+          code => sub { die "this will never be loaded" },
+        },
+        { name => 'sometimes',
+          when => sub { int rand 2 > 0 },
+          code => sub { "'sometimes' was loaded. args: [@_]" },
+          args => [ qw/foo bar baz/ ],
+        },
+        { name => 'always',
+          when => sub { 1 },
+          code => sub { "always' was loaded" },
+        },
+      ],
+
+    Each resource is a hashref that takes the same arguments:
+
+      name: what is this resource called?
+
+      when: a coderef that controls whether the resource will be activated
+
+      code: a coderef that is only run if the 'when' code returns true
+
+      args: an optional arrayref of args that are passed to the 'code'.
+
+    Note: using colons in your 'name's is not recommended. It will break the
+    $ENV{RMSTATES} handling.
+
+  load()
+    Load the resources.
+
+    Walks through the resources() in order. For each resource, if the 'when'
+    coderef returns true, then the 'code' coderef will be run as well.
+
+    That behaviour can be changed by the cont() and testing() methods as
+    well as the RMCONT and RMTESTING environment variables.
+
+    load() returns the output of loaded(); a hashref of statenames that
+    loaded successfully and the respective return values. See loaded().
+
+    Note: Running this method will overwrite the current status() and
+    loaded() tables with new info.
+
+  cont()
+    Do you want to continue loading resources after the first one is loaded?
+    Sometimes you want the first successful resource to load and then skip
+    all the others. That's the default behaviour. If you set cont() to 1,
+    then load() will keep checking (and loading resources).
+
+    When true, all states with true 'when' coderefs will be loaded.
+
+    When false, execution of states will stop after the first. (default)
+
+    The RMCONT environment variable value takes precedence to any value that
+    this method is set to.
+
+    cont() will return true if either $ENV{RMCONT} or this method has been
+    set to true.
+
+  testing()
+    When true, don't actually run the 'code' resources.
+
+    When false, it will.
+
+    The RMTESTING environment variable value takes precedence to any value
+    that this is set to. It will return true if either $ENV{RMTESTING} or
+    this method has been set to true.
+
+    When testing() is on, status() results will be set to 'skipped' if the
+    'when' coderef if true but the 'code' coderef wasn't run.
+
+  verbose() - be chatty
+    When true, print internal processing messages to STDOUT
+
+    When false, run quietly.
+
+    The RMCONT environment variable value takes precedence to any value that
+    this is set to. It will return true if either $ENV{RMCONT} or this
+    method has been set to true.
+
+  status()
+    Returns a hashref of which resources loading stati. Maps state names to
+    one of these values:
+
+      loaded: 'when' succeded so 'code' was run
+
+      skipped: the state name wasn't in $ENV{RMSTATES} so neither 'when' nor 'code' was run
+
+      notrun: 'when' succeeded and but 'code' wasn't run because we're in testing mode.
+
+      inactive: 'code' wasn't run.
+
+    sub loaded()
+
+    Returns a hashref that maps state names to the return values of loaded
+    resources.
+
+  env()
+    Returns a hashref of the Resource::Loader-related environment variables
+    and their current values. Probably only useful for debugging.
+
+ENVIRONMENT
+    Use these environment variables to override the local behavior of the
+    object (e.g. to test your Resource::Loader's responses)
+
+  RMSTATES
+    colon-separated list of states to run resources for. The 'when' coderefs
+    won't even be run if the state names aren't listed here.
+
+  RMCONT
+    See cont()
+
+  RMTESTING
+    See testing()
+
+  RMVERBOSE
+    See verbose()
+
+EXAMPLES
+    I originally wrote this to handle software deployment. Our software
+    starts its life on our development machine. From there, it's pushed to a
+    test machine. If it tests clean, it's eventually moved to a production
+    machine. The test and production machines are supposed to be as similar
+    as possible to prevent surprises when we deploy to production.
+
+    We don't want to mix environments by, say, testing code on the dev box
+    with the production database.
+
+    The source code for this is in the examples/ directory.
+
+SEE ALSO
+    City of God. It's quite a movie.
+
+AUTHOR
+    Joshua Keroes, <skunkworks@eli.net>
+
+COPYRIGHT AND LICENSE
+    Copyright 2003 by Joshua Keroes
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
